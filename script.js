@@ -124,7 +124,10 @@
     // ==========================================
     // PROFESSIONAL WHATSAPP MESSAGE TEMPLATE
     // ==========================================
-    const professionalMessage = `Hello Urban Hide! 👋\n\nI would like to place an order for this jacket:\n\n📦 *Product:* ${p.name}\n🏷️ *Category:* ${catLabel(p.category)}\n💰 *Price:* ${formatPrice(p.price)}\n\nCould you please confirm if my size is available? I am looking for size: [Type your size here]`;
+        // ==========================================
+    // PROFESSIONAL WHATSAPP MESSAGE WITH IMAGE LINK
+    // ==========================================
+    const professionalMessage = `Hello Urban Hide! 👋\n\nI would like to place an order for this jacket:\n\n📦 *Product:* ${p.name}\n🏷️ *Category:* ${catLabel(p.category)}\n💰 *Price:* ${formatPrice(p.price)}\n🖼️ *Image:* ${p.image}\n\nCould you please confirm if my size is available? I am looking for size: [Type your size here]`;
 
     modalBody.innerHTML = `
       <button class="close-btn" onclick="document.getElementById('modalOverlay').classList.remove('open')"><i class="fas fa-times"></i></button>
