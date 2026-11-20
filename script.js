@@ -22,7 +22,7 @@
     if ($("#year")) $("#year").textContent = new Date().getFullYear();
   }
 
-  function createCard(p) {
+   function createCard(p) {
     const img = p.image || "https://placehold.co/600x800/141414/333?text=Urban+Hide";
     const hasDiscount = p.oldPrice && p.oldPrice > p.price;
     
@@ -40,6 +40,10 @@
             ${hasDiscount ? `<span class="card-old">${formatPrice(p.oldPrice)}</span>` : ""}
             <span>${formatPrice(p.price)}</span>
           </div>
+          <!-- NEW BUY NOW BUTTON -->
+          <button class="btn-card-order ${!p.inStock ? 'disabled' : ''}">
+            ${p.inStock ? 'Order Now <i class="fab fa-whatsapp"></i>' : 'Out of Stock'}
+          </button>
         </div>
       </div>
     `;
