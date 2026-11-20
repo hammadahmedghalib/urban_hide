@@ -12,24 +12,34 @@
   const escapeHtml = (str) => String(str || "").replace(/[&<>"']/g, match => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[match]));
   const formatPrice = (val) => (DATA.settings.currencySymbol || "Rs ") + Number(val).toLocaleString("en-PK");
   const catLabel = (cat) => String(cat || "").replace(/-/g, " ").replace(/\b\w/g, c => c.toUpperCase());
-    // Find this line:
-  // const waLink = (msg) => `https://wa.me/${String(DATA.settings.whatsappNumber || "").replace(/[^\d]/g, "")}?text=${encodeURIComponent(msg)}`;
   
-  // Replace it with this:
   const waLink = (msg) => {
     const defaultMsg = "Hello Urban Hide! 👋 I am browsing your website and would like to inquire about your premium jackets.";
     return `https://wa.me/${String(DATA.settings.whatsappNumber || "").replace(/[^\d]/g, "")}?text=${encodeURIComponent(msg || defaultMsg)}`;
   };
 
+  /* ========== TOAST NOTIFICATION ========== */
+  function showToast(message) {
+    let toast = $("#toast");
+    if (!toast) {
+      toast = document.createElement("div");
+      toast.id = "toast";
+      document.body.appendChild(toast);
+    }
+    toast.textContent = message;
+    toast.classList.add("show");
+    setTimeout(() => toast.classList.remove("show"), 3000);
+  }
+
   /* ========== UI UPDATES ========== */
   function updateSettings() {
-    $$("[data-wa]").forEach(el => el.href = waLink("Hi Urban Hide! I would like to place an order."));
+    $$("[data-wa]").forEach(el => el.href = waLink());
     if ($("#storeAddress")) $("#storeAddress").textContent = DATA.settings.address || "Islamabad, Pakistan";
     if ($("#storePhone")) $("#storePhone").textContent = DATA.settings.phoneDisplay || "+92 336 5447075";
     if ($("#year")) $("#year").textContent = new Date().getFullYear();
   }
 
-   function createCard(p) {
+  function createCard(p) {
     const img = p.image || "https://placehold.co/600x800/141414/333?text=Urban+Hide";
     const hasDiscount = p.oldPrice && p.oldPrice > p.price;
     
@@ -39,7 +49,20 @@
           <img src="${escapeHtml(img)}" alt="${escapeHtml(p.name)}" loading="lazy" onerror="this.src='https://placehold.co/600x800/141414/333?text=Urban+Hide'">
           ${p.badge ? `<span class="card-badge">${escapeHtml(p.badge)}</span>` : ""}
           ${!p.inStock ? `<span class="card-badge" style="background:#ef4444;color:#fff;left:auto;right:1rem;">Sold Out</span>` : ""}
+          
+          <!-- THREE DOT MENU -->
+          <div class="card-options">
+            <button class="options-btn" onclick="event.stopPropagation(); this.nextElementSibling.classList.toggle('open')">
+              <i class="fas fa-ellipsis-v"></i>
+            </button>
+            <div class="options-menu">
+              <button class="copy-btn" data-id="${p.id}">
+                <i class="fas fa-link"></i> Copy Link
+              </button>
+            </div>
+          </div>
         </div>
+
         <div class="card-info">
           <div class="card-cat">${escapeHtml(catLabel(p.category))}</div>
           <div class="card-title">${escapeHtml(p.name)}</div>
@@ -47,7 +70,6 @@
             ${hasDiscount ? `<span class="card-old">${formatPrice(p.oldPrice)}</span>` : ""}
             <span>${formatPrice(p.price)}</span>
           </div>
-          <!-- NEW BUY NOW BUTTON -->
           <button class="btn-card-order ${!p.inStock ? 'disabled' : ''}">
             ${p.inStock ? 'Order Now <i class="fab fa-whatsapp"></i>' : 'Out of Stock'}
           </button>
@@ -71,9 +93,7 @@
   function renderFilters() {
     const wrap = $("#categoryFilters");
     if (!wrap) return;
-    
     const cats = ["all", ...new Set(DATA.products.map(p => p.category).filter(Boolean))];
-    
     wrap.innerHTML = cats.map(c => `
       <button class="filter-btn ${c === activeCategory ? 'active' : ''}" data-cat="${escapeHtml(c)}">
         ${c === "all" ? "All Jackets" : escapeHtml(catLabel(c))}
@@ -121,12 +141,6 @@
     const sizes = Array.isArray(p.sizes) && p.sizes.length ? p.sizes : ["One Size"];
     const available = p.inStock !== false;
 
-    // ==========================================
-    // PROFESSIONAL WHATSAPP MESSAGE TEMPLATE
-    // ==========================================
-        // ==========================================
-    // PROFESSIONAL WHATSAPP MESSAGE WITH IMAGE LINK
-    // ==========================================
     const professionalMessage = `Hello Urban Hide! 👋\n\nI would like to place an order for this jacket:\n\n📦 *Product:* ${p.name}\n🏷️ *Category:* ${catLabel(p.category)}\n💰 *Price:* ${formatPrice(p.price)}\n🖼️ *Image:* ${p.image}\n\nCould you please confirm if my size is available? I am looking for size: [Type your size here]`;
 
     modalBody.innerHTML = `
@@ -155,13 +169,28 @@
       </div>
     `;
     overlay.classList.add("open");
+    
+    // Update URL without reloading page (for direct sharing)
+    history.pushState(null, '', `?product=${id}`);
   }
 
-  if (overlay) overlay.addEventListener("click", e => { if (e.target === overlay) overlay.classList.remove("open"); });
-  document.addEventListener("keydown", e => { if (e.key === "Escape" && overlay) overlay.classList.remove("open"); });
+  if (overlay) overlay.addEventListener("click", e => { 
+    if (e.target === overlay) {
+      overlay.classList.remove("open");
+      history.pushState(null, '', window.location.pathname); // Clean URL when closed
+    }
+  });
+  
+  document.addEventListener("keydown", e => { 
+    if (e.key === "Escape" && overlay) {
+      overlay.classList.remove("open");
+      history.pushState(null, '', window.location.pathname);
+    }
+  });
 
   /* ========== EVENTS ========== */
   document.addEventListener("click", e => {
+    // Handle filter clicks
     const filter = e.target.closest(".filter-btn");
     if (filter) {
       activeCategory = filter.dataset.cat;
@@ -169,6 +198,25 @@
       renderShop();
       return;
     }
+
+    // Handle Copy Link clicks
+    const copyBtn = e.target.closest(".copy-btn");
+    if (copyBtn) {
+      e.stopPropagation();
+      const id = copyBtn.dataset.id;
+      const url = `${window.location.origin}${window.location.pathname}?product=${id}`;
+      
+      navigator.clipboard.writeText(url).then(() => {
+        showToast("🔗 Link copied to clipboard!");
+      }).catch(() => {
+        showToast("Failed to copy link.");
+      });
+      
+      copyBtn.parentElement.classList.remove('open');
+      return;
+    }
+
+    // Handle card clicks
     const card = e.target.closest(".card");
     if (card) openModal(card.dataset.id);
   });
@@ -188,9 +236,16 @@
       DATA.settings = result.settings || {};
       
       renderAll();
+
+      // DEEP LINKING: Check if URL has ?product=ID
+      const urlParams = new URLSearchParams(window.location.search);
+      const productId = urlParams.get('product');
+      if (productId) {
+        setTimeout(() => openModal(productId), 500); // Small delay to let UI render
+      }
+
     } catch (err) {
       console.error(err);
-      // Show a graceful fallback if database connection fails
       if ($("#featuredGrid")) $("#featuredGrid").innerHTML = `<div style="grid-column:1/-1;text-align:center;color:#ef4444;padding:2rem;">Failed to connect to database. Check your API URL.</div>`;
     }
   }
