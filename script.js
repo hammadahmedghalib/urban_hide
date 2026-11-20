@@ -42,7 +42,8 @@
   function createCard(p) {
     const img = p.image || "https://placehold.co/600x800/141414/333?text=Urban+Hide";
     const hasDiscount = p.oldPrice && p.oldPrice > p.price;
-    
+    const sizes = Array.isArray(p.sizes) && p.sizes.length ? p.sizes : [];
+
     return `
       <div class="card" data-id="${p.id}">
         <div class="card-img">
@@ -70,6 +71,14 @@
             ${hasDiscount ? `<span class="card-old">${formatPrice(p.oldPrice)}</span>` : ""}
             <span>${formatPrice(p.price)}</span>
           </div>
+          
+          <!-- NEW: SIZES ON CARD -->
+          ${sizes.length > 0 ? `
+            <div class="card-sizes">
+              ${sizes.map(s => `<span class="card-size-tag">${escapeHtml(s)}</span>`).join("")}
+            </div>
+          ` : ''}
+
           <button class="btn-card-order ${!p.inStock ? 'disabled' : ''}">
             ${p.inStock ? 'Order Now <i class="fab fa-whatsapp"></i>' : 'Out of Stock'}
           </button>
