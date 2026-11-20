@@ -3,120 +3,142 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Urban Hide — Premium Jackets</title>
+  <title>Urban Hide — Premium Streetwear</title>
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700;14..32,800&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,600;0,700;1,600&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
 
-  <!-- ========== HEADER ========== -->
+  <!-- HEADER -->
   <header class="header">
-    <div class="header-inner container">
-      <a href="#home" class="logo">
+    <div class="container header-inner">
+      <a href="#" class="logo">
         <i class="fa-solid fa-shirt"></i>
         <span>Urban Hide</span>
       </a>
-
+      
       <nav class="nav" id="mainNav">
         <a href="#home" class="nav-link active">Home</a>
-        <a href="#featured" class="nav-link">Featured</a>
-        <a href="#collections" class="nav-link">Collections</a>
+        <a href="#shop" class="nav-link">Shop</a>
         <a href="#about" class="nav-link">About</a>
       </nav>
 
       <div class="header-actions">
-        <a href="#" class="whatsapp-btn" data-wa target="_blank" rel="noopener">
+        <a href="#" class="btn btn-wa" data-wa target="_blank" rel="noopener">
           <i class="fab fa-whatsapp"></i>
-          <span>Order on WhatsApp</span>
+          <span>Order Now</span>
         </a>
-        <button class="menu-toggle" id="menuToggle" aria-label="Toggle menu">
-          <i class="fas fa-bars"></i>
-        </button>
+        <button class="menu-btn" id="menuToggle"><i class="fas fa-bars"></i></button>
       </div>
     </div>
   </header>
 
-  <!-- ========== HERO ========== -->
-  <section class="hero" id="home">
-    <div class="hero-content container">
-      <span class="hero-badge">Premium Leather &amp; Streetwear</span>
-      <h1>Elevate Your <span class="accent">Urban</span> Style</h1>
-      <p>Handcrafted jackets designed for the bold. Discover the latest drops, exclusive offers, and timeless pieces.</p>
-      <div class="hero-buttons">
-        <a href="#collections" class="btn btn-primary">Shop Now</a>
-        <a href="#" class="btn btn-outline" data-wa target="_blank" rel="noopener">
-          <i class="fab fa-whatsapp"></i> Chat with Us
-        </a>
+  <!-- HERO -->
+  <main>
+    <section class="hero" id="home">
+      <div class="container hero-content">
+        <span class="badge fade-in">New Collection 2026</span>
+        <h1 class="fade-in delay-1">Elevate Your <br><span class="text-accent serif">Urban</span> Edge.</h1>
+        <p class="fade-in delay-2">Discover handcrafted, premium jackets designed for the bold. Timeless silhouettes, uncompromising quality.</p>
+        <div class="hero-btns fade-in delay-3">
+          <a href="#shop" class="btn btn-primary">Explore Collection</a>
+          <a href="#" class="btn btn-outline" data-wa target="_blank">Contact Us</a>
+        </div>
       </div>
-    </div>
-  </section>
+    </section>
 
-  <!-- ========== FEATURED ========== -->
-  <section class="section" id="featured">
-    <div class="container">
-      <div class="section-header">
-        <h2>Featured Jackets</h2>
-        <p>Handpicked pieces — premium quality, limited stock</p>
+    <!-- FEATURED -->
+    <section class="section bg-darker" id="featured">
+      <div class="container">
+        <div class="section-header">
+          <h2 class="serif">The Signature Line</h2>
+          <p>Handpicked premium pieces for the season.</p>
+        </div>
+        <div class="grid" id="featuredGrid"></div>
       </div>
-      <div class="product-grid" id="featuredGrid"></div>
-    </div>
-  </section>
+    </section>
 
-  <!-- ========== COLLECTIONS ========== -->
-  <section class="section" id="collections">
-    <div class="container">
-      <div class="section-header">
-        <h2>Shop by Category</h2>
-        <p>Find your perfect fit across our curated collections</p>
+    <!-- SHOP / COLLECTIONS -->
+    <section class="section" id="shop">
+      <div class="container">
+        <div class="section-header">
+          <h2 class="serif">All Collections</h2>
+          <p>Find your perfect fit from our curated selection.</p>
+        </div>
+
+        <!-- TOOLBAR -->
+        <div class="toolbar">
+          <div class="search-box">
+            <i class="fas fa-search"></i>
+            <input type="text" id="searchInput" placeholder="Search jackets..." />
+          </div>
+          <div class="filters" id="categoryFilters">
+            <!-- Rendered by JS -->
+          </div>
+          <div class="sort-box">
+            <select id="sortSelect">
+              <option value="newest">Newest</option>
+              <option value="price-low">Price: Low to High</option>
+              <option value="price-high">Price: High to Low</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="grid" id="productGrid"></div>
       </div>
-      <div class="category-filters" id="categoryFilters"></div>
-      <div class="product-grid" id="productGrid"></div>
-    </div>
-  </section>
+    </section>
 
-  <!-- ========== ABOUT ========== -->
-  <section class="section about-section" id="about">
-    <div class="container">
-      <div class="about-content">
-        <h2>Urban Hide</h2>
-        <p>Located in the heart of Islamabad, we craft premium jackets that blend urban edge with timeless design.</p>
+    <!-- ABOUT -->
+    <section class="section bg-darker" id="about">
+      <div class="container about-grid">
+        <div class="about-text">
+          <h2 class="serif">Crafted in Islamabad.</h2>
+          <p>Urban Hide was born from a desire to merge streetwear ruggedness with premium tailoring. We source only the finest materials to ensure every piece fits flawlessly and ages beautifully.</p>
+          <ul class="features">
+            <li><i class="fas fa-gem"></i> Full-Grain Leather</li>
+            <li><i class="fas fa-truck-fast"></i> Nationwide Delivery</li>
+          </ul>
+        </div>
+        <div class="about-img">
+          <img src="https://images.unsplash.com/photo-1551028719-00167b16eac5?auto=format&fit=crop&w=800&q=80" alt="Craftsmanship">
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- FOOTER -->
+  <footer class="footer">
+    <div class="container footer-grid">
+      <div class="footer-brand">
+        <div class="logo"><i class="fa-solid fa-shirt"></i> Urban Hide</div>
+        <p>Elevating urban fashion with handcrafted outerwear. Built for the bold.</p>
+      </div>
+      <div class="footer-links">
+        <h4>Explore</h4>
+        <a href="#home">Home</a>
+        <a href="#shop">Shop All</a>
+        <a href="#about">About Us</a>
+      </div>
+      <div class="footer-contact">
+        <h4>Visit Us</h4>
         <p><i class="fas fa-map-marker-alt"></i> <span id="storeAddress">Islamabad, Pakistan</span></p>
         <p><i class="fas fa-phone"></i> <span id="storePhone">+92 336 5447075</span></p>
       </div>
     </div>
-  </section>
-
-  <!-- ========== FOOTER ========== -->
-  <footer class="footer">
-    <div class="container footer-inner">
-      <div class="footer-brand">
-        <i class="fa-solid fa-shirt"></i>
-        <span>Urban Hide</span>
-      </div>
-      <p class="footer-copy">&copy; <span id="year">2026</span> Urban Hide. All rights reserved. Crafted with <i class="fas fa-heart"></i> in Islamabad.</p>
-      <a href="#" class="footer-whatsapp" data-wa target="_blank" rel="noopener">
-        <i class="fab fa-whatsapp"></i> <span id="footerPhone">+92 336 5447075</span>
-      </a>
+    <div class="footer-bottom">
+      <p>&copy; <span id="year"></span> Urban Hide. All rights reserved.</p>
     </div>
   </footer>
 
-  <!-- ========== QUICK VIEW MODAL ========== -->
+  <!-- QUICK VIEW MODAL -->
   <div class="modal-overlay" id="modalOverlay">
-    <div class="modal" role="dialog" aria-modal="true">
-      <button class="modal-close" id="modalClose" aria-label="Close">
-        <i class="fas fa-times"></i>
-      </button>
-      <div class="modal-body" id="modalBody"></div>
-    </div>
+    <div class="modal" id="modalBody"></div>
   </div>
 
-  <!-- ========== TOAST ========== -->
-  <div class="toast" id="toast"></div>
-
-  
   <script src="script.js"></script>
 </body>
+</html>

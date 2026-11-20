@@ -1,67 +1,55 @@
-<<<<<<< HEAD
 (function () {
   "use strict";
 
+  // Global state for DB data
   var DATA = { settings: {}, products: [] };
   var editingId = null;
   var searchTerm = "";
   var PLACEHOLDER = "https://placehold.co/800x1000/161b22/c9985b?text=Urban+Hide";
 
-  function $(selector, context) {
-    return (context || document).querySelector(selector);
+  function $(s, c) { return (c || document).querySelector(s); }
+  function $$(s, c) { return Array.prototype.slice.call((c || document).querySelectorAll(s)); }
+  function escapeHtml(v) { return String(v == null ? "" : v).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
+  function formatPrice(v) { var n = Number(v); return isFinite(n) ? (DATA.settings.currencySymbol || "Rs ") + n.toLocaleString("en-PK") : ""; }
+
+  function showToast(msg, type) {
+    var t = $("#adminToast");
+    if (!t) return;
+    t.textContent = msg;
+    t.className = "admin-toast show " + (type || "");
+    clearTimeout(showToast._t);
+    showToast._t = setTimeout(function () { t.className = "admin-toast"; }, 3000);
   }
 
-  function $$(selector, context) {
-    return Array.prototype.slice.call((context || document).querySelectorAll(selector));
+  /* ========== FETCH DATA ========== */
+  async function loadData() {
+    try {
+      var response = await fetch('/api/products');
+      if (!response.ok) throw new Error("Database connection failed");
+      var result = await response.json();
+      
+      DATA.products = result.products || [];
+      DATA.settings = result.settings || {};
+      
+      renderAll();
+    } catch (error) {
+      console.error(error);
+      showToast("Error connecting to database.", "error");
+    }
   }
 
-  function escapeHtml(value) {
-    return String(value == null ? "" : value).replace(/[&<>"']/g, function (ch) {
-      return {
-        "&": "&amp;",
-        "<": "&lt;",
-        ">": "&gt;",
-        '"': "&quot;",
-        "'": "&#39;"
-      }[ch];
-    });
-  }
-
-  function formatPrice(value) {
-    var number = Number(value);
-    if (!isFinite(number)) return "";
-    return (DATA.settings.currencySymbol || "Rs ") + number.toLocaleString("en-PK");
-  }
-
-  function showAdminToast(message, type) {
-    var toast = $("#adminToast");
-    if (!toast) return;
-    toast.textContent = message;
-    toast.className = "admin-toast show " + (type || "");
-    clearTimeout(showAdminToast._timer);
-    showAdminToast._timer = setTimeout(function () {
-      toast.className = "admin-toast";
-    }, 3400);
-  }
-
-  /* ========== RENDER ========== */
+  /* ========== RENDER UI ========== */
   function renderStats() {
     var grid = $("#statsGrid");
     if (!grid) return;
-
     var total = DATA.products.length;
     var featured = DATA.products.filter(function (p) { return p.featured; }).length;
-    var outOfStock = DATA.products.filter(function (p) { return p.inStock === false; }).length;
-    var categories = DATA.products.map(function (p) { return p.category; })
-      .filter(Boolean)
-      .filter(function (category, index, list) { return list.indexOf(category) === index; })
-      .length;
+    var out = DATA.products.filter(function (p) { return p.inStock === false; }).length;
 
     grid.innerHTML =
       '<div class="stat-card"><span>Total Products</span><strong>' + total + "</strong></div>" +
       '<div class="stat-card"><span>Featured</span><strong>' + featured + "</strong></div>" +
-      '<div class="stat-card"><span>Out of Stock</span><strong>' + outOfStock + "</strong></div>" +
-      '<div class="stat-card"><span>Categories</span><strong>' + categories + "</strong></div>";
+      '<div class="stat-card"><span>Out of Stock</span><strong>' + out + "</strong></div>";
   }
 
   function renderTable() {
@@ -69,61 +57,30 @@
     if (!tbody) return;
 
     var term = searchTerm.toLowerCase();
-
-    var list = DATA.products.filter(function (product) {
-      if (!term) return true;
-      return [product.name, product.category, product.id]
-        .join(" ")
-        .toLowerCase()
-        .indexOf(term) !== -1;
+    var list = DATA.products.filter(function (p) {
+      return term ? [p.name, p.category, p.id].join(" ").toLowerCase().indexOf(term) !== -1 : true;
     });
 
     if (!list.length) {
-      tbody.innerHTML = '<tr><td colspan="6"><div class="table-empty">No products match your search.</div></td></tr>';
+      tbody.innerHTML = '<tr><td colspan="6"><div class="table-empty">No products found.</div></td></tr>';
       return;
     }
 
-    tbody.innerHTML = list.map(function (product) {
-      var image = product.image || PLACEHOLDER;
-      return (
-        "<tr>" +
-          "<td>" +
-            '<div class="table-product">' +
-              '<img src="' + escapeHtml(image) + '" alt="' + escapeHtml(product.name) + '" onerror="this.onerror=null;this.src=\'' + PLACEHOLDER + '\'">' +
-              "<div>" +
-                "<strong>" + escapeHtml(product.name) + "</strong>" +
-                "<span>" + escapeHtml(product.id) + "</span>" +
-              "</div>" +
-            "</div>" +
-          "</td>" +
-          '<td><span class="pill">' + escapeHtml(product.category || "jacket") + "</span></td>" +
-          "<td>" + formatPrice(product.price) + "</td>" +
-          "<td>" +
-            '<button class="icon-btn ' + (product.featured ? "is-on" : "") + '" data-action="featured" data-id="' + escapeHtml(product.id) + '" title="Toggle featured">' +
-              '<i class="fas fa-star"></i>' +
-            "</button>" +
-          "</td>" +
-          "<td>" +
-            '<button class="icon-btn ' + (product.inStock ? "is-on" : "is-danger") + '" data-action="stock" data-id="' + escapeHtml(product.id) + '" title="Toggle stock">' +
-              '<i class="fas fa-' + (product.inStock ? "check" : "ban") + '"></i>' +
-            "</button>" +
-          "</td>" +
-          '<td class="text-right">' +
-            '<button class="icon-btn" data-action="edit" data-id="' + escapeHtml(product.id) + '" title="Edit">' +
-              '<i class="fas fa-pen"></i>' +
-            "</button>" +
-            '<button class="icon-btn is-danger" data-action="delete" data-id="' + escapeHtml(product.id) + '" title="Delete">' +
-              '<i class="fas fa-trash"></i>' +
-            "</button>" +
-          "</td>" +
-        "</tr>"
-      );
+    tbody.innerHTML = list.map(function (p) {
+      var img = p.image || PLACEHOLDER;
+      return "<tr>" +
+          '<td><div class="table-product"><img src="' + escapeHtml(img) + '" onerror="this.onerror=null;this.src=\'' + PLACEHOLDER + '\'"><div><strong>' + escapeHtml(p.name) + '</strong><span>#' + escapeHtml(p.id) + '</span></div></div></td>' +
+          '<td><span class="pill">' + escapeHtml(p.category || "jacket") + "</span></td>" +
+          "<td>" + formatPrice(p.price) + "</td>" +
+          '<td><button class="icon-btn ' + (p.featured ? "is-on" : "") + '" data-action="featured" data-id="' + escapeHtml(p.id) + '"><i class="fas fa-star"></i></button></td>' +
+          '<td><button class="icon-btn ' + (p.inStock ? "is-on" : "is-danger") + '" data-action="stock" data-id="' + escapeHtml(p.id) + '"><i class="fas fa-' + (p.inStock ? "check" : "ban") + '"></i></button></td>' +
+          '<td class="text-right"><button class="icon-btn" data-action="edit" data-id="' + escapeHtml(p.id) + '"><i class="fas fa-pen"></i></button><button class="icon-btn is-danger" data-action="delete" data-id="' + escapeHtml(p.id) + '"><i class="fas fa-trash"></i></button></td>' +
+        "</tr>";
     }).join("");
   }
 
   function renderSettings() {
     var s = DATA.settings || {};
-
     if ($("#settingsWhatsapp")) $("#settingsWhatsapp").value = s.whatsappNumber || "";
     if ($("#settingsPhone")) $("#settingsPhone").value = s.phoneDisplay || "";
     if ($("#settingsCurrency")) $("#settingsCurrency").value = s.currency || "PKR";
@@ -137,178 +94,113 @@
     renderSettings();
   }
 
-  /* ========== FETCH DATA FROM DB ========== */
-  async function loadAdminData() {
-    try {
-      var response = await fetch('/api/products');
-      if (!response.ok) throw new Error("Failed to fetch");
-      var result = await response.json();
-      
-      DATA.products = result.products || [];
-      DATA.settings = result.settings || {};
-      
-      renderAll();
-    } catch (error) {
-      console.error("Failed to load data:", error);
-      showAdminToast("Failed to connect to database.", "error");
-    }
-  }
+  /* ========== MODAL ACTIONS ========== */
+  var modal = $("#adminModalOverlay");
+  var form = $("#productForm");
 
-  /* ========== PRODUCT MODAL ========== */
-  var adminModalOverlay = $("#adminModalOverlay");
-  var productForm = $("#productForm");
-
-  function openProductForm(id) {
-    if (!adminModalOverlay || !productForm) return;
-
+  function openForm(id) {
+    if (!modal || !form) return;
     editingId = id || null;
-    productForm.reset();
+    form.reset();
+    
+    var p = id ? DATA.products.find(function (i) { return String(i.id) === String(id); }) : null;
+    if ($("#adminModalTitle")) $("#adminModalTitle").textContent = p ? "Edit Product" : "Add New Product";
 
-    var title = $("#adminModalTitle");
-    var product = id
-      ? DATA.products.find(function (item) { return String(item.id) === String(id); })
-      : null;
-
-    if (title) title.textContent = product ? "Edit Product" : "Add Product";
-
-    if (product) {
-      productForm.elements.name.value = product.name || "";
-      productForm.elements.category.value = product.category || "";
-      productForm.elements.price.value = product.price || "";
-      productForm.elements.oldPrice.value = product.oldPrice || "";
-      productForm.elements.image.value = product.image || "";
-      productForm.elements.description.value = product.description || "";
-      productForm.elements.sizes.value = Array.isArray(product.sizes) ? product.sizes.join(", ") : "";
-      productForm.elements.badge.value = product.badge || "";
-      productForm.elements.featured.checked = !!product.featured;
-      productForm.elements.inStock.checked = product.inStock !== false;
+    if (p) {
+      form.elements.name.value = p.name || "";
+      form.elements.category.value = p.category || "";
+      form.elements.price.value = p.price || "";
+      form.elements.oldPrice.value = p.oldPrice || "";
+      form.elements.image.value = p.image || "";
+      form.elements.description.value = p.description || "";
+      form.elements.sizes.value = Array.isArray(p.sizes) ? p.sizes.join(", ") : "";
+      form.elements.badge.value = p.badge || "";
+      form.elements.featured.checked = !!p.featured;
+      form.elements.inStock.checked = p.inStock !== false;
     } else {
-      productForm.elements.featured.checked = false;
-      productForm.elements.inStock.checked = true;
+      form.elements.featured.checked = false;
+      form.elements.inStock.checked = true;
     }
-
-    adminModalOverlay.classList.add("open");
+    
+    modal.classList.add("open");
     document.body.style.overflow = "hidden";
-    setTimeout(function () { productForm.elements.name.focus(); }, 50);
+    setTimeout(function () { form.elements.name.focus(); }, 50);
   }
 
-  function closeProductForm() {
-    if (!adminModalOverlay) return;
-    adminModalOverlay.classList.remove("open");
+  function closeForm() {
+    if (!modal) return;
+    modal.classList.remove("open");
     document.body.style.overflow = "";
     editingId = null;
   }
 
-  if (adminModalOverlay) {
-    adminModalOverlay.addEventListener("click", function (event) {
-      if (event.target === adminModalOverlay) closeProductForm();
-    });
-  }
+  if (modal) modal.addEventListener("click", function (e) { if (e.target === modal) closeForm(); });
+  if ($("#adminModalClose")) $("#adminModalClose").addEventListener("click", closeForm);
+  if ($("#cancelProductBtn")) $("#cancelProductBtn").addEventListener("click", closeForm);
 
-  var adminModalClose = $("#adminModalClose");
-  if (adminModalClose) adminModalClose.addEventListener("click", closeProductForm);
-
-  var cancelProductBtn = $("#cancelProductBtn");
-  if (cancelProductBtn) cancelProductBtn.addEventListener("click", closeProductForm);
-
-  document.addEventListener("keydown", function (event) {
-    if (event.key === "Escape") closeProductForm();
-  });
-
-  /* ========== SAVE PRODUCT TO DB ========== */
-  if (productForm) {
-    productForm.addEventListener("submit", async function (event) {
-      event.preventDefault();
-
-      var name = productForm.elements.name.value.trim();
-      var category = productForm.elements.category.value.trim().toLowerCase().replace(/\s+/g, "-");
-      var price = Number(productForm.elements.price.value);
-      var oldPriceRaw = productForm.elements.oldPrice.value.trim();
-      var oldPrice = oldPriceRaw ? Number(oldPriceRaw) : null;
-      var image = productForm.elements.image.value.trim() || PLACEHOLDER;
-      var description = productForm.elements.description.value.trim();
-      var sizes = productForm.elements.sizes.value.split(",").map(function (size) {
-        return size.trim();
-      }).filter(Boolean);
-      var badge = productForm.elements.badge.value.trim();
-      var featured = productForm.elements.featured.checked;
-      var inStock = productForm.elements.inStock.checked;
-
-      if (!name || !category) {
-        showAdminToast("Product name and category are required.", "error");
-        return;
-      }
-
-      if (!isFinite(price) || price < 0) {
-        showAdminToast("Please enter a valid price.", "error");
-        return;
-      }
-
-      var productData = {
+  /* ========== SAVE PRODUCT ========== */
+  if (form) {
+    form.addEventListener("submit", async function (e) {
+      e.preventDefault();
+      
+      var pData = {
         id: editingId || "p_" + Date.now(),
-        name: name,
-        category: category,
-        price: price,
-        oldPrice: oldPrice && oldPrice > price ? oldPrice : null,
-        image: image,
-        description: description,
-        sizes: sizes,
-        badge: badge,
-        featured: featured,
-        inStock: inStock
+        name: form.elements.name.value.trim(),
+        category: form.elements.category.value.trim().toLowerCase().replace(/\s+/g, "-"),
+        price: Number(form.elements.price.value),
+        oldPrice: form.elements.oldPrice.value ? Number(form.elements.oldPrice.value) : null,
+        image: form.elements.image.value.trim() || PLACEHOLDER,
+        description: form.elements.description.value.trim(),
+        sizes: form.elements.sizes.value.split(",").map(function (s) { return s.trim(); }).filter(Boolean),
+        badge: form.elements.badge.value.trim(),
+        featured: form.elements.featured.checked,
+        inStock: form.elements.inStock.checked
       };
 
       try {
-        var response = await fetch('/api/products', {
+        var res = await fetch('/api/products', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(productData)
+          body: JSON.stringify(pData)
         });
-
-        if (!response.ok) throw new Error("Failed to save");
-
-        showAdminToast(editingId ? "Product updated in Database!" : "Product added to Database!", "success");
-        closeProductForm();
-        loadAdminData(); // Reload fresh data from DB
-
-      } catch (error) {
-        console.error(error);
-        showAdminToast("Error saving to database.", "error");
+        if (!res.ok) throw new Error("Failed");
+        
+        showToast(editingId ? "Product updated!" : "Product added!", "success");
+        closeForm();
+        loadData(); // Reload from DB
+      } catch (err) {
+        showToast("Error saving product.", "error");
       }
     });
   }
 
-  /* ========== TABLE ACTIONS (Toggle Stock/Featured) ========== */
-  var tableBody = $("#productTableBody");
-  if (tableBody) {
-    tableBody.addEventListener("click", async function (event) {
-      var button = event.target.closest("button[data-action]");
-      if (!button) return;
+  /* ========== TABLE ACTIONS (Edit/Delete/Toggle) ========== */
+  if ($("#productTableBody")) {
+    $("#productTableBody").addEventListener("click", async function (e) {
+      var btn = e.target.closest("button[data-action]");
+      if (!btn) return;
+      
+      var action = btn.dataset.action;
+      var id = btn.dataset.id;
+      var p = DATA.products.find(function (i) { return String(i.id) === String(id); });
+      if (!p) return;
 
-      var action = button.dataset.action;
-      var id = button.dataset.id;
-      var product = DATA.products.find(function (item) { return String(item.id) === String(id); });
-
-      if (!product) return;
-
-      if (action === "edit") {
-        openProductForm(id);
-        return;
-      }
+      if (action === "edit") { openForm(id); return; }
 
       if (action === "delete") {
-        if (!confirm('Delete "' + product.name + '"? This cannot be undone.')) return;
-        
-        // NOTE: To support delete, you would need to add a DELETE handler to your api/products.js
-        // For now, we will just show a toast.
-        showAdminToast("Delete requires API update. Please edit instead.", "error");
+        if (!confirm('Delete "' + p.name + '"?')) return;
+        try {
+          await fetch('/api/products?id=' + id, { method: 'DELETE' });
+          showToast("Product deleted!", "success");
+          loadData();
+        } catch (err) { showToast("Delete failed.", "error"); }
         return;
       }
 
-      // Quick Toggles (Update database directly)
-      var updatedData = Object.assign({}, product);
-      if (action === "featured") updatedData.featured = !product.featured;
-      if (action === "stock") updatedData.inStock = !product.inStock;
+      // Toggle Featured or Stock
+      var updatedData = Object.assign({}, p);
+      if (action === "featured") updatedData.featured = !p.featured;
+      if (action === "stock") updatedData.inStock = !p.inStock;
 
       try {
         await fetch('/api/products', {
@@ -316,487 +208,33 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(updatedData)
         });
-        loadAdminData(); // Refresh UI
-        showAdminToast("Status updated!", "success");
-      } catch (err) {
-        showAdminToast("Failed to update status.", "error");
-      }
+        loadData();
+      } catch (err) { showToast("Update failed.", "error"); }
     });
   }
 
-  /* ========== SEARCH & ADD ========== */
+  /* ========== SEARCH & TABS ========== */
   if ($("#productSearch")) {
     $("#productSearch").addEventListener("input", function () {
-      searchTerm = $("#productSearch").value.trim();
+      searchTerm = this.value.trim();
       renderTable();
     });
   }
 
-  if ($("#addProductBtn")) {
-    $("#addProductBtn").addEventListener("click", function () { openProductForm(null); });
-  }
+  if ($("#addProductBtn")) $("#addProductBtn").addEventListener("click", function () { openForm(null); });
 
-  /* ========== SETTINGS (Save to DB) ========== */
-  if ($("#settingsForm")) {
-    $("#settingsForm").addEventListener("submit", async function (e) {
-      e.preventDefault();
+  $$(".admin-nav-btn").forEach(function (b) {
+    b.addEventListener("click", function () {
+      $$(".admin-nav-btn").forEach(function (btn) { btn.classList.toggle("active", btn === b); });
+      $$(".admin-tab").forEach(function (sec) { sec.classList.toggle("active", sec.id === "tab-" + b.dataset.tab); });
       
-      var newSettings = {
-        whatsappNumber: $("#settingsWhatsapp").value.trim().replace(/[^\d]/g, ""),
-        phoneDisplay: $("#settingsPhone").value.trim(),
-        address: $("#settingsAddress").value.trim(),
-        currency: $("#settingsCurrency").value.trim() || "PKR",
-        currencySymbol: $("#settingsCurrencySymbol").value || "Rs "
-      };
-
-      try {
-        // You would need to add a POST /api/settings route to handle this in the backend.
-        // Assuming you add it, here is the fetch:
-        /*
-        await fetch('/api/settings', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(newSettings)
-        });
-        */
-        
-        DATA.settings = Object.assign(DATA.settings, newSettings);
-        showAdminToast("Settings saved locally (Requires backend API to persist).", "success");
-      } catch (error) {
-        showAdminToast("Error saving settings.", "error");
-      }
-    });
-  }
-
-  /* ========== TABS ========== */
-  var tabMeta = {
-    products: { title: "Products", subtitle: "Manage your catalog, featured items, and stock.", showAdd: true },
-    settings: { title: "Store Settings", subtitle: "Update WhatsApp, phone, address, and currency display.", showAdd: false },
-    transfer: { title: "Import / Export", subtitle: "Manage backups and data transfer.", showAdd: false }
-  };
-
-  $$(".admin-nav-btn").forEach(function (button) {
-    button.addEventListener("click", function () {
-      var tab = button.dataset.tab;
-
-      $$(".admin-nav-btn").forEach(function (btn) {
-        btn.classList.toggle("active", btn === button);
-      });
-
-      $$(".admin-tab").forEach(function (section) {
-        section.classList.toggle("active", section.id === "tab-" + tab);
-      });
-
-      var meta = tabMeta[tab];
-      if (meta) {
-        if ($("#adminTitle")) $("#adminTitle").textContent = meta.title;
-        if ($("#adminSubtitle")) $("#adminSubtitle").textContent = meta.subtitle;
-        if ($("#addProductBtn")) $("#addProductBtn").style.display = meta.showAdd ? "inline-flex" : "none";
-      }
+      var isProd = b.dataset.tab === "products";
+      if ($("#addProductBtn")) $("#addProductBtn").style.display = isProd ? "inline-flex" : "none";
+      if ($("#adminTitle")) $("#adminTitle").textContent = isProd ? "Inventory" : "Store Settings";
+      if ($("#adminSubtitle")) $("#adminSubtitle").textContent = isProd ? "Manage your products, pricing, and stock in real-time." : "Update your contact details and currency display.";
     });
   });
 
   /* ========== INITIALIZE ========== */
-  loadAdminData();
-=======
-(function () {
-  "use strict";
-
-  var DATA = { settings: {}, products: [] };
-  var editingId = null;
-  var searchTerm = "";
-  var PLACEHOLDER = "https://placehold.co/800x1000/161b22/c9985b?text=Urban+Hide";
-
-  function $(selector, context) {
-    return (context || document).querySelector(selector);
-  }
-
-  function $$(selector, context) {
-    return Array.prototype.slice.call((context || document).querySelectorAll(selector));
-  }
-
-  function escapeHtml(value) {
-    return String(value == null ? "" : value).replace(/[&<>"']/g, function (ch) {
-      return {
-        "&": "&amp;",
-        "<": "&lt;",
-        ">": "&gt;",
-        '"': "&quot;",
-        "'": "&#39;"
-      }[ch];
-    });
-  }
-
-  function formatPrice(value) {
-    var number = Number(value);
-    if (!isFinite(number)) return "";
-    return (DATA.settings.currencySymbol || "Rs ") + number.toLocaleString("en-PK");
-  }
-
-  function showAdminToast(message, type) {
-    var toast = $("#adminToast");
-    if (!toast) return;
-    toast.textContent = message;
-    toast.className = "admin-toast show " + (type || "");
-    clearTimeout(showAdminToast._timer);
-    showAdminToast._timer = setTimeout(function () {
-      toast.className = "admin-toast";
-    }, 3400);
-  }
-
-  /* ========== RENDER ========== */
-  function renderStats() {
-    var grid = $("#statsGrid");
-    if (!grid) return;
-
-    var total = DATA.products.length;
-    var featured = DATA.products.filter(function (p) { return p.featured; }).length;
-    var outOfStock = DATA.products.filter(function (p) { return p.inStock === false; }).length;
-    var categories = DATA.products.map(function (p) { return p.category; })
-      .filter(Boolean)
-      .filter(function (category, index, list) { return list.indexOf(category) === index; })
-      .length;
-
-    grid.innerHTML =
-      '<div class="stat-card"><span>Total Products</span><strong>' + total + "</strong></div>" +
-      '<div class="stat-card"><span>Featured</span><strong>' + featured + "</strong></div>" +
-      '<div class="stat-card"><span>Out of Stock</span><strong>' + outOfStock + "</strong></div>" +
-      '<div class="stat-card"><span>Categories</span><strong>' + categories + "</strong></div>";
-  }
-
-  function renderTable() {
-    var tbody = $("#productTableBody");
-    if (!tbody) return;
-
-    var term = searchTerm.toLowerCase();
-
-    var list = DATA.products.filter(function (product) {
-      if (!term) return true;
-      return [product.name, product.category, product.id]
-        .join(" ")
-        .toLowerCase()
-        .indexOf(term) !== -1;
-    });
-
-    if (!list.length) {
-      tbody.innerHTML = '<tr><td colspan="6"><div class="table-empty">No products match your search.</div></td></tr>';
-      return;
-    }
-
-    tbody.innerHTML = list.map(function (product) {
-      var image = product.image || PLACEHOLDER;
-      return (
-        "<tr>" +
-          "<td>" +
-            '<div class="table-product">' +
-              '<img src="' + escapeHtml(image) + '" alt="' + escapeHtml(product.name) + '" onerror="this.onerror=null;this.src=\'' + PLACEHOLDER + '\'">' +
-              "<div>" +
-                "<strong>" + escapeHtml(product.name) + "</strong>" +
-                "<span>" + escapeHtml(product.id) + "</span>" +
-              "</div>" +
-            "</div>" +
-          "</td>" +
-          '<td><span class="pill">' + escapeHtml(product.category || "jacket") + "</span></td>" +
-          "<td>" + formatPrice(product.price) + "</td>" +
-          "<td>" +
-            '<button class="icon-btn ' + (product.featured ? "is-on" : "") + '" data-action="featured" data-id="' + escapeHtml(product.id) + '" title="Toggle featured">' +
-              '<i class="fas fa-star"></i>' +
-            "</button>" +
-          "</td>" +
-          "<td>" +
-            '<button class="icon-btn ' + (product.inStock ? "is-on" : "is-danger") + '" data-action="stock" data-id="' + escapeHtml(product.id) + '" title="Toggle stock">' +
-              '<i class="fas fa-' + (product.inStock ? "check" : "ban") + '"></i>' +
-            "</button>" +
-          "</td>" +
-          '<td class="text-right">' +
-            '<button class="icon-btn" data-action="edit" data-id="' + escapeHtml(product.id) + '" title="Edit">' +
-              '<i class="fas fa-pen"></i>' +
-            "</button>" +
-            '<button class="icon-btn is-danger" data-action="delete" data-id="' + escapeHtml(product.id) + '" title="Delete">' +
-              '<i class="fas fa-trash"></i>' +
-            "</button>" +
-          "</td>" +
-        "</tr>"
-      );
-    }).join("");
-  }
-
-  function renderSettings() {
-    var s = DATA.settings || {};
-
-    if ($("#settingsWhatsapp")) $("#settingsWhatsapp").value = s.whatsappNumber || "";
-    if ($("#settingsPhone")) $("#settingsPhone").value = s.phoneDisplay || "";
-    if ($("#settingsCurrency")) $("#settingsCurrency").value = s.currency || "PKR";
-    if ($("#settingsCurrencySymbol")) $("#settingsCurrencySymbol").value = s.currencySymbol || "Rs ";
-    if ($("#settingsAddress")) $("#settingsAddress").value = s.address || "";
-  }
-
-  function renderAll() {
-    renderStats();
-    renderTable();
-    renderSettings();
-  }
-
-  /* ========== FETCH DATA FROM DB ========== */
-  async function loadAdminData() {
-    try {
-      var response = await fetch('/api/products');
-      if (!response.ok) throw new Error("Failed to fetch");
-      var result = await response.json();
-      
-      DATA.products = result.products || [];
-      DATA.settings = result.settings || {};
-      
-      renderAll();
-    } catch (error) {
-      console.error("Failed to load data:", error);
-      showAdminToast("Failed to connect to database.", "error");
-    }
-  }
-
-  /* ========== PRODUCT MODAL ========== */
-  var adminModalOverlay = $("#adminModalOverlay");
-  var productForm = $("#productForm");
-
-  function openProductForm(id) {
-    if (!adminModalOverlay || !productForm) return;
-
-    editingId = id || null;
-    productForm.reset();
-
-    var title = $("#adminModalTitle");
-    var product = id
-      ? DATA.products.find(function (item) { return String(item.id) === String(id); })
-      : null;
-
-    if (title) title.textContent = product ? "Edit Product" : "Add Product";
-
-    if (product) {
-      productForm.elements.name.value = product.name || "";
-      productForm.elements.category.value = product.category || "";
-      productForm.elements.price.value = product.price || "";
-      productForm.elements.oldPrice.value = product.oldPrice || "";
-      productForm.elements.image.value = product.image || "";
-      productForm.elements.description.value = product.description || "";
-      productForm.elements.sizes.value = Array.isArray(product.sizes) ? product.sizes.join(", ") : "";
-      productForm.elements.badge.value = product.badge || "";
-      productForm.elements.featured.checked = !!product.featured;
-      productForm.elements.inStock.checked = product.inStock !== false;
-    } else {
-      productForm.elements.featured.checked = false;
-      productForm.elements.inStock.checked = true;
-    }
-
-    adminModalOverlay.classList.add("open");
-    document.body.style.overflow = "hidden";
-    setTimeout(function () { productForm.elements.name.focus(); }, 50);
-  }
-
-  function closeProductForm() {
-    if (!adminModalOverlay) return;
-    adminModalOverlay.classList.remove("open");
-    document.body.style.overflow = "";
-    editingId = null;
-  }
-
-  if (adminModalOverlay) {
-    adminModalOverlay.addEventListener("click", function (event) {
-      if (event.target === adminModalOverlay) closeProductForm();
-    });
-  }
-
-  var adminModalClose = $("#adminModalClose");
-  if (adminModalClose) adminModalClose.addEventListener("click", closeProductForm);
-
-  var cancelProductBtn = $("#cancelProductBtn");
-  if (cancelProductBtn) cancelProductBtn.addEventListener("click", closeProductForm);
-
-  document.addEventListener("keydown", function (event) {
-    if (event.key === "Escape") closeProductForm();
-  });
-
-  /* ========== SAVE PRODUCT TO DB ========== */
-  if (productForm) {
-    productForm.addEventListener("submit", async function (event) {
-      event.preventDefault();
-
-      var name = productForm.elements.name.value.trim();
-      var category = productForm.elements.category.value.trim().toLowerCase().replace(/\s+/g, "-");
-      var price = Number(productForm.elements.price.value);
-      var oldPriceRaw = productForm.elements.oldPrice.value.trim();
-      var oldPrice = oldPriceRaw ? Number(oldPriceRaw) : null;
-      var image = productForm.elements.image.value.trim() || PLACEHOLDER;
-      var description = productForm.elements.description.value.trim();
-      var sizes = productForm.elements.sizes.value.split(",").map(function (size) {
-        return size.trim();
-      }).filter(Boolean);
-      var badge = productForm.elements.badge.value.trim();
-      var featured = productForm.elements.featured.checked;
-      var inStock = productForm.elements.inStock.checked;
-
-      if (!name || !category) {
-        showAdminToast("Product name and category are required.", "error");
-        return;
-      }
-
-      if (!isFinite(price) || price < 0) {
-        showAdminToast("Please enter a valid price.", "error");
-        return;
-      }
-
-      var productData = {
-        id: editingId || "p_" + Date.now(),
-        name: name,
-        category: category,
-        price: price,
-        oldPrice: oldPrice && oldPrice > price ? oldPrice : null,
-        image: image,
-        description: description,
-        sizes: sizes,
-        badge: badge,
-        featured: featured,
-        inStock: inStock
-      };
-
-      try {
-        var response = await fetch('/api/products', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(productData)
-        });
-
-        if (!response.ok) throw new Error("Failed to save");
-
-        showAdminToast(editingId ? "Product updated in Database!" : "Product added to Database!", "success");
-        closeProductForm();
-        loadAdminData(); // Reload fresh data from DB
-
-      } catch (error) {
-        console.error(error);
-        showAdminToast("Error saving to database.", "error");
-      }
-    });
-  }
-
-  /* ========== TABLE ACTIONS (Toggle Stock/Featured) ========== */
-  var tableBody = $("#productTableBody");
-  if (tableBody) {
-    tableBody.addEventListener("click", async function (event) {
-      var button = event.target.closest("button[data-action]");
-      if (!button) return;
-
-      var action = button.dataset.action;
-      var id = button.dataset.id;
-      var product = DATA.products.find(function (item) { return String(item.id) === String(id); });
-
-      if (!product) return;
-
-      if (action === "edit") {
-        openProductForm(id);
-        return;
-      }
-
-      if (action === "delete") {
-        if (!confirm('Delete "' + product.name + '"? This cannot be undone.')) return;
-        
-        // NOTE: To support delete, you would need to add a DELETE handler to your api/products.js
-        // For now, we will just show a toast.
-        showAdminToast("Delete requires API update. Please edit instead.", "error");
-        return;
-      }
-
-      // Quick Toggles (Update database directly)
-      var updatedData = Object.assign({}, product);
-      if (action === "featured") updatedData.featured = !product.featured;
-      if (action === "stock") updatedData.inStock = !product.inStock;
-
-      try {
-        await fetch('/api/products', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(updatedData)
-        });
-        loadAdminData(); // Refresh UI
-        showAdminToast("Status updated!", "success");
-      } catch (err) {
-        showAdminToast("Failed to update status.", "error");
-      }
-    });
-  }
-
-  /* ========== SEARCH & ADD ========== */
-  if ($("#productSearch")) {
-    $("#productSearch").addEventListener("input", function () {
-      searchTerm = $("#productSearch").value.trim();
-      renderTable();
-    });
-  }
-
-  if ($("#addProductBtn")) {
-    $("#addProductBtn").addEventListener("click", function () { openProductForm(null); });
-  }
-
-  /* ========== SETTINGS (Save to DB) ========== */
-  if ($("#settingsForm")) {
-    $("#settingsForm").addEventListener("submit", async function (e) {
-      e.preventDefault();
-      
-      var newSettings = {
-        whatsappNumber: $("#settingsWhatsapp").value.trim().replace(/[^\d]/g, ""),
-        phoneDisplay: $("#settingsPhone").value.trim(),
-        address: $("#settingsAddress").value.trim(),
-        currency: $("#settingsCurrency").value.trim() || "PKR",
-        currencySymbol: $("#settingsCurrencySymbol").value || "Rs "
-      };
-
-      try {
-        // You would need to add a POST /api/settings route to handle this in the backend.
-        // Assuming you add it, here is the fetch:
-        /*
-        await fetch('/api/settings', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(newSettings)
-        });
-        */
-        
-        DATA.settings = Object.assign(DATA.settings, newSettings);
-        showAdminToast("Settings saved locally (Requires backend API to persist).", "success");
-      } catch (error) {
-        showAdminToast("Error saving settings.", "error");
-      }
-    });
-  }
-
-  /* ========== TABS ========== */
-  var tabMeta = {
-    products: { title: "Products", subtitle: "Manage your catalog, featured items, and stock.", showAdd: true },
-    settings: { title: "Store Settings", subtitle: "Update WhatsApp, phone, address, and currency display.", showAdd: false },
-    transfer: { title: "Import / Export", subtitle: "Manage backups and data transfer.", showAdd: false }
-  };
-
-  $$(".admin-nav-btn").forEach(function (button) {
-    button.addEventListener("click", function () {
-      var tab = button.dataset.tab;
-
-      $$(".admin-nav-btn").forEach(function (btn) {
-        btn.classList.toggle("active", btn === button);
-      });
-
-      $$(".admin-tab").forEach(function (section) {
-        section.classList.toggle("active", section.id === "tab-" + tab);
-      });
-
-      var meta = tabMeta[tab];
-      if (meta) {
-        if ($("#adminTitle")) $("#adminTitle").textContent = meta.title;
-        if ($("#adminSubtitle")) $("#adminSubtitle").textContent = meta.subtitle;
-        if ($("#addProductBtn")) $("#addProductBtn").style.display = meta.showAdd ? "inline-flex" : "none";
-      }
-    });
-  });
-
-  /* ========== INITIALIZE ========== */
-  loadAdminData();
->>>>>>> c249896abefd84aaeb8c158e8fbef24b0326b4fd
+  loadData();
 })();

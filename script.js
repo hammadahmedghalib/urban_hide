@@ -1,602 +1,180 @@
-<<<<<<< HEAD
 (function () {
   "use strict";
 
-  var DATA = { settings: {}, products: [] };
-  var activeCategory = "all";
+  let DATA = { settings: {}, products: [] };
+  let activeCategory = "all";
+  let searchTerm = "";
+  let sortBy = "newest";
 
-  function $(selector, context) {
-    return (context || document).querySelector(selector);
+  const $ = (s, c) => (c || document).querySelector(s);
+  const $$ = (s, c) => Array.from((c || document).querySelectorAll(s));
+  
+  const escapeHtml = (str) => String(str || "").replace(/[&<>"']/g, match => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[match]));
+  const formatPrice = (val) => (DATA.settings.currencySymbol || "Rs ") + Number(val).toLocaleString("en-PK");
+  const catLabel = (cat) => String(cat || "").replace(/-/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+  const waLink = (msg) => `https://wa.me/${String(DATA.settings.whatsappNumber || "").replace(/[^\d]/g, "")}?text=${encodeURIComponent(msg)}`;
+
+  /* ========== UI UPDATES ========== */
+  function updateSettings() {
+    $$("[data-wa]").forEach(el => el.href = waLink("Hi Urban Hide! I would like to place an order."));
+    if ($("#storeAddress")) $("#storeAddress").textContent = DATA.settings.address || "Islamabad, Pakistan";
+    if ($("#storePhone")) $("#storePhone").textContent = DATA.settings.phoneDisplay || "+92 336 5447075";
+    if ($("#year")) $("#year").textContent = new Date().getFullYear();
   }
 
-  function $$(selector, context) {
-    return Array.prototype.slice.call((context || document).querySelectorAll(selector));
-  }
-
-  function escapeHtml(value) {
-    return String(value == null ? "" : value).replace(/[&<>"']/g, function (ch) {
-      return {
-        "&": "&amp;",
-        "<": "&lt;",
-        ">": "&gt;",
-        '"': "&quot;",
-        "'": "&#39;"
-      }[ch];
-    });
-  }
-
-  function formatPrice(value) {
-    var number = Number(value);
-    if (!isFinite(number)) return "";
-    return (DATA.settings.currencySymbol || "Rs ") + number.toLocaleString("en-PK");
-  }
-
-  function waLink(message) {
-    var number = String(DATA.settings.whatsappNumber || "").replace(/[^\d]/g, "");
-    var text = message || "Hi Urban Hide! I would like to place an order.";
-    return "https://wa.me/" + number + "?text=" + encodeURIComponent(text);
-  }
-
-  function categoryLabel(category) {
-    return String(category || "jacket")
-      .replace(/-/g, " ")
-      .replace(/\b\w/g, function (c) {
-        return c.toUpperCase();
-      });
-  }
-
-  function applySettings() {
-    $$("[data-wa]").forEach(function (link) {
-      link.href = waLink();
-    });
-
-    var address = $("#storeAddress");
-    if (address) address.textContent = DATA.settings.address || "Islamabad, Pakistan";
-
-    var phone = $("#storePhone");
-    if (phone) phone.textContent = DATA.settings.phoneDisplay || "+92 336 5447075";
-
-    var footerPhone = $("#footerPhone");
-    if (footerPhone) footerPhone.textContent = DATA.settings.phoneDisplay || "+92 336 5447075";
-
-    var year = $("#year");
-    if (year) year.textContent = new Date().getFullYear();
-  }
-
-  function productCard(product) {
-    var image = product.image || "https://placehold.co/800x1000/161b22/c9985b?text=Urban+Hide";
-    var sizes = Array.isArray(product.sizes) ? product.sizes.join(" · ") : "";
-
-    return (
-      '<article class="product-card" data-product-id="' + escapeHtml(product.id) + '" tabindex="0" role="button" aria-label="View ' + escapeHtml(product.name) + '">' +
-        '<div class="product-media">' +
-          '<img src="' + escapeHtml(image) + '" alt="' + escapeHtml(product.name) + '" loading="lazy" onerror="this.onerror=null;this.src=\'https://placehold.co/800x1000/161b22/c9985b?text=Urban+Hide\'">' +
-          (product.badge ? '<span class="product-badge">' + escapeHtml(product.badge) + "</span>" : "") +
-          (!product.inStock ? '<span class="product-badge badge-out">Out of Stock</span>' : "") +
-        "</div>" +
-        '<div class="product-body">' +
-          '<span class="product-category">' + escapeHtml(categoryLabel(product.category)) + "</span>" +
-          '<h3 class="product-name">' + escapeHtml(product.name) + "</h3>" +
-          '<div class="product-price">' +
-            (product.oldPrice ? '<span class="old-price">' + formatPrice(product.oldPrice) + "</span>" : "") +
-            "<span>" + formatPrice(product.price) + "</span>" +
-          "</div>" +
-          '<div class="product-card-footer">' +
-            "<span>" + escapeHtml(sizes || "Sizes available") + "</span>" +
-            '<span class="quick-view">Quick View <i class="fas fa-arrow-right"></i></span>' +
-          "</div>" +
-        "</div>" +
-      "</article>"
-    );
+  function createCard(p) {
+    const img = p.image || "https://placehold.co/600x800/141414/333?text=Urban+Hide";
+    const hasDiscount = p.oldPrice && p.oldPrice > p.price;
+    
+    return `
+      <div class="card" data-id="${p.id}">
+        <div class="card-img">
+          <img src="${escapeHtml(img)}" alt="${escapeHtml(p.name)}" loading="lazy" onerror="this.src='https://placehold.co/600x800/141414/333?text=Urban+Hide'">
+          ${p.badge ? `<span class="card-badge">${escapeHtml(p.badge)}</span>` : ""}
+          ${!p.inStock ? `<span class="card-badge" style="background:#ef4444;color:#fff;left:auto;right:1rem;">Sold Out</span>` : ""}
+        </div>
+        <div class="card-info">
+          <div class="card-cat">${escapeHtml(catLabel(p.category))}</div>
+          <div class="card-title">${escapeHtml(p.name)}</div>
+          <div class="card-price">
+            ${hasDiscount ? `<span class="card-old">${formatPrice(p.oldPrice)}</span>` : ""}
+            <span>${formatPrice(p.price)}</span>
+          </div>
+        </div>
+      </div>
+    `;
   }
 
   function renderFeatured() {
-    var grid = $("#featuredGrid");
+    const grid = $("#featuredGrid");
     if (!grid) return;
-
-    var featured = DATA.products.filter(function (product) {
-      return product.featured;
-    }).slice(0, 8);
-
-    grid.innerHTML = featured.length
-      ? featured.map(productCard).join("")
-      : '<div class="empty-state">No featured jackets yet. Check back soon.</div>';
+    const featured = DATA.products.filter(p => p.featured).slice(0, 4);
+    
+    if (featured.length === 0) {
+      grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:3rem;border:1px dashed var(--border);border-radius:12px;color:var(--text-muted)">No featured products yet. Add some in the Admin panel.</div>`;
+      return;
+    }
+    grid.innerHTML = featured.map(createCard).join("");
   }
 
-  function renderCategories() {
-    var wrap = $("#categoryFilters");
+  function renderFilters() {
+    const wrap = $("#categoryFilters");
     if (!wrap) return;
-
-    var categories = ["all"].concat(
-      DATA.products.map(function (product) {
-        return product.category;
-      }).filter(Boolean).filter(function (category, index, list) {
-        return list.indexOf(category) === index;
-      })
-    );
-
-    wrap.innerHTML = categories.map(function (category) {
-      return (
-        '<button class="filter-btn ' + (category === activeCategory ? "active" : "") + '" data-category="' + escapeHtml(category) + '">' +
-          (category === "all" ? "All" : escapeHtml(categoryLabel(category))) +
-        "</button>"
-      );
-    }).join("");
+    
+    const cats = ["all", ...new Set(DATA.products.map(p => p.category).filter(Boolean))];
+    
+    wrap.innerHTML = cats.map(c => `
+      <button class="filter-btn ${c === activeCategory ? 'active' : ''}" data-cat="${escapeHtml(c)}">
+        ${c === "all" ? "All Jackets" : escapeHtml(catLabel(c))}
+      </button>
+    `).join("");
   }
 
-  function renderProducts() {
-    var grid = $("#productGrid");
+  function renderShop() {
+    const grid = $("#productGrid");
     if (!grid) return;
 
-    var list = activeCategory === "all"
-      ? DATA.products
-      : DATA.products.filter(function (product) {
-          return product.category === activeCategory;
-        });
+    let items = DATA.products.filter(p => {
+      const matchesCat = activeCategory === "all" || p.category === activeCategory;
+      const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase());
+      return matchesCat && matchesSearch;
+    });
 
-    grid.innerHTML = list.length
-      ? list.map(productCard).join("")
-      : '<div class="empty-state">No jackets found in this category.</div>';
+    if (sortBy === "price-low") items.sort((a,b) => a.price - b.price);
+    else if (sortBy === "price-high") items.sort((a,b) => b.price - a.price);
+    else items.sort((a,b) => String(b.id).localeCompare(String(a.id)));
+
+    if (items.length === 0) {
+      grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:4rem;color:var(--text-muted)">No products found matching your criteria.</div>`;
+    } else {
+      grid.innerHTML = items.map(createCard).join("");
+    }
   }
 
   function renderAll() {
-    applySettings();
+    updateSettings();
     renderFeatured();
-    renderCategories();
-    renderProducts();
+    renderFilters();
+    renderShop();
   }
 
   /* ========== MODAL ========== */
-  var overlay = $("#modalOverlay");
-  var modalBody = $("#modalBody");
-  var modalClose = $("#modalClose");
+  const overlay = $("#modalOverlay");
+  const modalBody = $("#modalBody");
 
-  function openModal(productId) {
-    var product = DATA.products.find(function (item) {
-      return String(item.id) === String(productId);
-    });
-    if (!product || !overlay || !modalBody) return;
+  function openModal(id) {
+    const p = DATA.products.find(item => String(item.id) === String(id));
+    if (!p || !overlay) return;
 
-    var available = product.inStock !== false;
-    var image = product.image || "https://placehold.co/800x1000/161b22/c9985b?text=Urban+Hide";
-    var sizes = Array.isArray(product.sizes) ? product.sizes : [];
-    var orderText = "Hi Urban Hide! I'm interested in " + product.name + " (" + formatPrice(product.price) + "). Please share availability and sizes.";
+    const img = p.image || "https://placehold.co/600x800/141414/333?text=Urban+Hide";
+    const sizes = Array.isArray(p.sizes) && p.sizes.length ? p.sizes : ["One Size"];
+    const available = p.inStock !== false;
 
-    modalBody.innerHTML =
-      '<div class="modal-product">' +
-        '<div class="modal-media">' +
-          '<img src="' + escapeHtml(image) + '" alt="' + escapeHtml(product.name) + '" onerror="this.onerror=null;this.src=\'https://placehold.co/800x1000/161b22/c9985b?text=Urban+Hide\'">' +
-        "</div>" +
-        '<div class="modal-info">' +
-          '<span class="product-category">' + escapeHtml(categoryLabel(product.category)) + "</span>" +
-          "<h2>" + escapeHtml(product.name) + "</h2>" +
-          '<div class="modal-price">' +
-            (product.oldPrice ? '<span class="old-price">' + formatPrice(product.oldPrice) + "</span>" : "") +
-            "<span>" + formatPrice(product.price) + "</span>" +
-          "</div>" +
-          '<p class="modal-desc">' + escapeHtml(product.description || "Premium Urban Hide jacket. Contact us on WhatsApp for more details.") + "</p>" +
-          '<div class="modal-sizes">' +
-            '<span class="label">Sizes</span>' +
-            '<div class="size-list">' +
-              (sizes.length
-                ? sizes.map(function (size) {
-                    return '<span class="size-chip">' + escapeHtml(size) + "</span>";
-                  }).join("")
-                : '<span class="muted">Contact for sizes</span>') +
-            "</div>" +
-          "</div>" +
-          '<a class="btn btn-primary btn-block ' + (!available ? "disabled" : "") + '" href="' + (available ? waLink(orderText) : "#") + '" target="_blank" rel="noopener" ' + (!available ? 'aria-disabled="true"' : "") + ">" +
-            '<i class="fab fa-whatsapp"></i> ' + (available ? "Order on WhatsApp" : "Out of Stock") +
-          "</a>" +
-        "</div>" +
-      "</div>";
-
+    modalBody.innerHTML = `
+      <button class="close-btn" onclick="document.getElementById('modalOverlay').classList.remove('open')"><i class="fas fa-times"></i></button>
+      <div class="modal-content">
+        <div class="modal-img"><img src="${escapeHtml(img)}" alt="${escapeHtml(p.name)}"></div>
+        <div class="modal-details">
+          <div class="card-cat">${escapeHtml(catLabel(p.category))}</div>
+          <h2>${escapeHtml(p.name)}</h2>
+          <div class="modal-price">
+            ${p.oldPrice ? `<span class="card-old">${formatPrice(p.oldPrice)}</span>` : ""}
+            ${formatPrice(p.price)}
+          </div>
+          <p class="modal-desc">${escapeHtml(p.description || "Premium quality jacket from Urban Hide.")}</p>
+          <div>
+            <span class="size-label">Available Sizes</span>
+            <div class="sizes">
+              ${sizes.map(s => `<span class="size-tag">${escapeHtml(s)}</span>`).join("")}
+            </div>
+          </div>
+          <a href="${available ? waLink(`Hi Urban Hide, I want to order ${p.name} (${formatPrice(p.price)})`) : '#'}" 
+             class="btn btn-primary" target="_blank" ${!available ? 'style="opacity:0.5;pointer-events:none"' : ''}>
+            <i class="fab fa-whatsapp"></i> ${available ? "Order via WhatsApp" : "Out of Stock"}
+          </a>
+        </div>
+      </div>
+    `;
     overlay.classList.add("open");
-    document.body.style.overflow = "hidden";
-    if (modalClose) modalClose.focus();
   }
 
-  function closeModal() {
-    if (!overlay) return;
-    overlay.classList.remove("open");
-    document.body.style.overflow = "";
-  }
-
-  if (overlay) {
-    overlay.addEventListener("click", function (event) {
-      if (event.target === overlay) closeModal();
-    });
-  }
-
-  if (modalClose) {
-    modalClose.addEventListener("click", closeModal);
-  }
-
-  document.addEventListener("keydown", function (event) {
-    if (event.key === "Escape") closeModal();
-  });
+  if (overlay) overlay.addEventListener("click", e => { if (e.target === overlay) overlay.classList.remove("open"); });
+  document.addEventListener("keydown", e => { if (e.key === "Escape" && overlay) overlay.classList.remove("open"); });
 
   /* ========== EVENTS ========== */
-  document.addEventListener("click", function (event) {
-    var filter = event.target.closest(".filter-btn");
+  document.addEventListener("click", e => {
+    const filter = e.target.closest(".filter-btn");
     if (filter) {
-      activeCategory = filter.dataset.category;
-      renderCategories();
-      renderProducts();
+      activeCategory = filter.dataset.cat;
+      renderFilters();
+      renderShop();
       return;
     }
-
-    var card = event.target.closest(".product-card");
-    if (card) {
-      openModal(card.dataset.productId);
-    }
+    const card = e.target.closest(".card");
+    if (card) openModal(card.dataset.id);
   });
 
-  document.addEventListener("keydown", function (event) {
-    if (event.key === "Enter" && event.target.matches(".product-card")) {
-      openModal(event.target.dataset.productId);
-    }
-  });
+  if ($("#searchInput")) $("#searchInput").addEventListener("input", e => { searchTerm = e.target.value; renderShop(); });
+  if ($("#sortSelect")) $("#sortSelect").addEventListener("change", e => { sortBy = e.target.value; renderShop(); });
+  if ($("#menuToggle")) $("#menuToggle").addEventListener("click", () => $("#mainNav").classList.toggle("open"));
 
-  /* ========== MOBILE NAV ========== */
-  var menuToggle = $("#menuToggle");
-  var nav = $("#mainNav");
-
-  if (menuToggle && nav) {
-    menuToggle.addEventListener("click", function () {
-      nav.classList.toggle("open");
-    });
-  }
-
-  $$(".nav-link").forEach(function (link) {
-    link.addEventListener("click", function () {
-      $$(".nav-link").forEach(function (item) {
-        item.classList.remove("active");
-      });
-      link.classList.add("active");
-      if (nav) nav.classList.remove("open");
-    });
-  });
-
-  /* ========== TOAST ========== */
-  function showToast(message, type) {
-    var toast = $("#toast");
-    if (!toast) return;
-    toast.textContent = message;
-    toast.className = "toast show " + (type || "");
-    clearTimeout(showToast._timer);
-    showToast._timer = setTimeout(function () {
-      toast.className = "toast";
-    }, 3200);
-  }
-
-  /* ========== FETCH FROM DATABASE ========== */
-  async function loadData() {
+  /* ========== FETCH DATA ========== */
+  async function init() {
     try {
-      // Fetch data from the Vercel API connected to Neon
-      var response = await fetch('/api/products');
-      if (!response.ok) throw new Error("Failed to fetch");
+      const res = await fetch('/api/products');
+      if (!res.ok) throw new Error("DB Error");
+      const result = await res.json();
       
-      var result = await response.json();
-      
-      // Update global data
       DATA.products = result.products || [];
       DATA.settings = result.settings || {};
       
-      // Re-render the website with real database data
       renderAll();
-      
-    } catch (error) {
-      console.error("Database Error:", error);
-      // Optional fallback to local products.js if DB fails
-      if (window.URBAN_HIDE_DATA) {
-        DATA = window.URBAN_HIDE_DATA;
-        renderAll();
-      }
+    } catch (err) {
+      console.error(err);
+      // Show a graceful fallback if database connection fails
+      if ($("#featuredGrid")) $("#featuredGrid").innerHTML = `<div style="grid-column:1/-1;text-align:center;color:#ef4444;padding:2rem;">Failed to connect to database. Check your API URL.</div>`;
     }
   }
 
-  // Initialize
-  loadData();
-=======
-(function () {
-  "use strict";
-
-  var DATA = { settings: {}, products: [] };
-  var activeCategory = "all";
-
-  function $(selector, context) {
-    return (context || document).querySelector(selector);
-  }
-
-  function $$(selector, context) {
-    return Array.prototype.slice.call((context || document).querySelectorAll(selector));
-  }
-
-  function escapeHtml(value) {
-    return String(value == null ? "" : value).replace(/[&<>"']/g, function (ch) {
-      return {
-        "&": "&amp;",
-        "<": "&lt;",
-        ">": "&gt;",
-        '"': "&quot;",
-        "'": "&#39;"
-      }[ch];
-    });
-  }
-
-  function formatPrice(value) {
-    var number = Number(value);
-    if (!isFinite(number)) return "";
-    return (DATA.settings.currencySymbol || "Rs ") + number.toLocaleString("en-PK");
-  }
-
-  function waLink(message) {
-    var number = String(DATA.settings.whatsappNumber || "").replace(/[^\d]/g, "");
-    var text = message || "Hi Urban Hide! I would like to place an order.";
-    return "https://wa.me/" + number + "?text=" + encodeURIComponent(text);
-  }
-
-  function categoryLabel(category) {
-    return String(category || "jacket")
-      .replace(/-/g, " ")
-      .replace(/\b\w/g, function (c) {
-        return c.toUpperCase();
-      });
-  }
-
-  function applySettings() {
-    $$("[data-wa]").forEach(function (link) {
-      link.href = waLink();
-    });
-
-    var address = $("#storeAddress");
-    if (address) address.textContent = DATA.settings.address || "Islamabad, Pakistan";
-
-    var phone = $("#storePhone");
-    if (phone) phone.textContent = DATA.settings.phoneDisplay || "+92 336 5447075";
-
-    var footerPhone = $("#footerPhone");
-    if (footerPhone) footerPhone.textContent = DATA.settings.phoneDisplay || "+92 336 5447075";
-
-    var year = $("#year");
-    if (year) year.textContent = new Date().getFullYear();
-  }
-
-  function productCard(product) {
-    var image = product.image || "https://placehold.co/800x1000/161b22/c9985b?text=Urban+Hide";
-    var sizes = Array.isArray(product.sizes) ? product.sizes.join(" · ") : "";
-
-    return (
-      '<article class="product-card" data-product-id="' + escapeHtml(product.id) + '" tabindex="0" role="button" aria-label="View ' + escapeHtml(product.name) + '">' +
-        '<div class="product-media">' +
-          '<img src="' + escapeHtml(image) + '" alt="' + escapeHtml(product.name) + '" loading="lazy" onerror="this.onerror=null;this.src=\'https://placehold.co/800x1000/161b22/c9985b?text=Urban+Hide\'">' +
-          (product.badge ? '<span class="product-badge">' + escapeHtml(product.badge) + "</span>" : "") +
-          (!product.inStock ? '<span class="product-badge badge-out">Out of Stock</span>' : "") +
-        "</div>" +
-        '<div class="product-body">' +
-          '<span class="product-category">' + escapeHtml(categoryLabel(product.category)) + "</span>" +
-          '<h3 class="product-name">' + escapeHtml(product.name) + "</h3>" +
-          '<div class="product-price">' +
-            (product.oldPrice ? '<span class="old-price">' + formatPrice(product.oldPrice) + "</span>" : "") +
-            "<span>" + formatPrice(product.price) + "</span>" +
-          "</div>" +
-          '<div class="product-card-footer">' +
-            "<span>" + escapeHtml(sizes || "Sizes available") + "</span>" +
-            '<span class="quick-view">Quick View <i class="fas fa-arrow-right"></i></span>' +
-          "</div>" +
-        "</div>" +
-      "</article>"
-    );
-  }
-
-  function renderFeatured() {
-    var grid = $("#featuredGrid");
-    if (!grid) return;
-
-    var featured = DATA.products.filter(function (product) {
-      return product.featured;
-    }).slice(0, 8);
-
-    grid.innerHTML = featured.length
-      ? featured.map(productCard).join("")
-      : '<div class="empty-state">No featured jackets yet. Check back soon.</div>';
-  }
-
-  function renderCategories() {
-    var wrap = $("#categoryFilters");
-    if (!wrap) return;
-
-    var categories = ["all"].concat(
-      DATA.products.map(function (product) {
-        return product.category;
-      }).filter(Boolean).filter(function (category, index, list) {
-        return list.indexOf(category) === index;
-      })
-    );
-
-    wrap.innerHTML = categories.map(function (category) {
-      return (
-        '<button class="filter-btn ' + (category === activeCategory ? "active" : "") + '" data-category="' + escapeHtml(category) + '">' +
-          (category === "all" ? "All" : escapeHtml(categoryLabel(category))) +
-        "</button>"
-      );
-    }).join("");
-  }
-
-  function renderProducts() {
-    var grid = $("#productGrid");
-    if (!grid) return;
-
-    var list = activeCategory === "all"
-      ? DATA.products
-      : DATA.products.filter(function (product) {
-          return product.category === activeCategory;
-        });
-
-    grid.innerHTML = list.length
-      ? list.map(productCard).join("")
-      : '<div class="empty-state">No jackets found in this category.</div>';
-  }
-
-  function renderAll() {
-    applySettings();
-    renderFeatured();
-    renderCategories();
-    renderProducts();
-  }
-
-  /* ========== MODAL ========== */
-  var overlay = $("#modalOverlay");
-  var modalBody = $("#modalBody");
-  var modalClose = $("#modalClose");
-
-  function openModal(productId) {
-    var product = DATA.products.find(function (item) {
-      return String(item.id) === String(productId);
-    });
-    if (!product || !overlay || !modalBody) return;
-
-    var available = product.inStock !== false;
-    var image = product.image || "https://placehold.co/800x1000/161b22/c9985b?text=Urban+Hide";
-    var sizes = Array.isArray(product.sizes) ? product.sizes : [];
-    var orderText = "Hi Urban Hide! I'm interested in " + product.name + " (" + formatPrice(product.price) + "). Please share availability and sizes.";
-
-    modalBody.innerHTML =
-      '<div class="modal-product">' +
-        '<div class="modal-media">' +
-          '<img src="' + escapeHtml(image) + '" alt="' + escapeHtml(product.name) + '" onerror="this.onerror=null;this.src=\'https://placehold.co/800x1000/161b22/c9985b?text=Urban+Hide\'">' +
-        "</div>" +
-        '<div class="modal-info">' +
-          '<span class="product-category">' + escapeHtml(categoryLabel(product.category)) + "</span>" +
-          "<h2>" + escapeHtml(product.name) + "</h2>" +
-          '<div class="modal-price">' +
-            (product.oldPrice ? '<span class="old-price">' + formatPrice(product.oldPrice) + "</span>" : "") +
-            "<span>" + formatPrice(product.price) + "</span>" +
-          "</div>" +
-          '<p class="modal-desc">' + escapeHtml(product.description || "Premium Urban Hide jacket. Contact us on WhatsApp for more details.") + "</p>" +
-          '<div class="modal-sizes">' +
-            '<span class="label">Sizes</span>' +
-            '<div class="size-list">' +
-              (sizes.length
-                ? sizes.map(function (size) {
-                    return '<span class="size-chip">' + escapeHtml(size) + "</span>";
-                  }).join("")
-                : '<span class="muted">Contact for sizes</span>') +
-            "</div>" +
-          "</div>" +
-          '<a class="btn btn-primary btn-block ' + (!available ? "disabled" : "") + '" href="' + (available ? waLink(orderText) : "#") + '" target="_blank" rel="noopener" ' + (!available ? 'aria-disabled="true"' : "") + ">" +
-            '<i class="fab fa-whatsapp"></i> ' + (available ? "Order on WhatsApp" : "Out of Stock") +
-          "</a>" +
-        "</div>" +
-      "</div>";
-
-    overlay.classList.add("open");
-    document.body.style.overflow = "hidden";
-    if (modalClose) modalClose.focus();
-  }
-
-  function closeModal() {
-    if (!overlay) return;
-    overlay.classList.remove("open");
-    document.body.style.overflow = "";
-  }
-
-  if (overlay) {
-    overlay.addEventListener("click", function (event) {
-      if (event.target === overlay) closeModal();
-    });
-  }
-
-  if (modalClose) {
-    modalClose.addEventListener("click", closeModal);
-  }
-
-  document.addEventListener("keydown", function (event) {
-    if (event.key === "Escape") closeModal();
-  });
-
-  /* ========== EVENTS ========== */
-  document.addEventListener("click", function (event) {
-    var filter = event.target.closest(".filter-btn");
-    if (filter) {
-      activeCategory = filter.dataset.category;
-      renderCategories();
-      renderProducts();
-      return;
-    }
-
-    var card = event.target.closest(".product-card");
-    if (card) {
-      openModal(card.dataset.productId);
-    }
-  });
-
-  document.addEventListener("keydown", function (event) {
-    if (event.key === "Enter" && event.target.matches(".product-card")) {
-      openModal(event.target.dataset.productId);
-    }
-  });
-
-  /* ========== MOBILE NAV ========== */
-  var menuToggle = $("#menuToggle");
-  var nav = $("#mainNav");
-
-  if (menuToggle && nav) {
-    menuToggle.addEventListener("click", function () {
-      nav.classList.toggle("open");
-    });
-  }
-
-  $$(".nav-link").forEach(function (link) {
-    link.addEventListener("click", function () {
-      $$(".nav-link").forEach(function (item) {
-        item.classList.remove("active");
-      });
-      link.classList.add("active");
-      if (nav) nav.classList.remove("open");
-    });
-  });
-
-  /* ========== TOAST ========== */
-  function showToast(message, type) {
-    var toast = $("#toast");
-    if (!toast) return;
-    toast.textContent = message;
-    toast.className = "toast show " + (type || "");
-    clearTimeout(showToast._timer);
-    showToast._timer = setTimeout(function () {
-      toast.className = "toast";
-    }, 3200);
-  }
-
-  /* ========== FETCH FROM DATABASE ========== */
-  async function loadData() {
-    try {
-      // Fetch data from the Vercel API connected to Neon
-      var response = await fetch('/api/products');
-      if (!response.ok) throw new Error("Failed to fetch");
-      
-      var result = await response.json();
-      
-      // Update global data
-      DATA.products = result.products || [];
-      DATA.settings = result.settings || {};
-      
-      // Re-render the website with real database data
-      renderAll();
-      
-    } catch (error) {
-      console.error("Database Error:", error);
-      // Optional fallback to local products.js if DB fails
-      if (window.URBAN_HIDE_DATA) {
-        DATA = window.URBAN_HIDE_DATA;
-        renderAll();
-      }
-    }
-  }
-
-  // Initialize
-  loadData();
->>>>>>> c249896abefd84aaeb8c158e8fbef24b0326b4fd
+  init();
 })();
