@@ -235,6 +235,46 @@
     });
   });
 
+  /* ========== SETTINGS (Save to DB) ========== */
+  if ($("#settingsForm")) {
+    $("#settingsForm").addEventListener("submit", async function (e) {
+      e.preventDefault();
+      
+      var newSettings = {
+        whatsappNumber: $("#settingsWhatsapp").value.trim().replace(/[^\d]/g, ""),
+        phoneDisplay: $("#settingsPhone").value.trim(),
+        address: $("#settingsAddress").value.trim(),
+        currency: $("#settingsCurrency").value.trim() || "PKR",
+        currencySymbol: $("#settingsCurrencySymbol").value || "Rs "
+      };
+
+      var btn = this.querySelector('button[type="submit"]');
+      var originalText = btn.innerHTML;
+      btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+      btn.disabled = true;
+
+      try {
+        var res = await fetch('/api/products', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(newSettings)
+        });
+
+        if (!res.ok) throw new Error("Failed to save settings");
+
+        showToast("Settings saved to database!", "success");
+        loadData(); // Reload fresh data from DB
+        
+      } catch (error) {
+        console.error(error);
+        showToast("Error saving settings.", "error");
+      } finally {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+      }
+    });
+  }
+
   /* ========== INITIALIZE ========== */
   loadData();
 })();

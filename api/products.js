@@ -62,6 +62,26 @@ export default async function handler(req, res) {
     }
   }
 
+    // PUT: Update Store Settings
+  if (req.method === 'PUT') {
+    try {
+      const s = req.body;
+      await sql`
+        UPDATE settings 
+        SET whatsapp_number = ${s.whatsappNumber}, 
+            phone_display = ${s.phoneDisplay}, 
+            address = ${s.address}, 
+            currency = ${s.currency}, 
+            currency_symbol = ${s.currencySymbol}
+        WHERE id = 1;
+      `;
+      return res.status(200).json({ success: true });
+    } catch (error) {
+      console.error("PUT Error:", error);
+      return res.status(500).json({ error: error.message });
+    }
+  }
+
   // DELETE: Remove product
   if (req.method === 'DELETE') {
     try {
