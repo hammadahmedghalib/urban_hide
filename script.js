@@ -12,7 +12,14 @@
   const escapeHtml = (str) => String(str || "").replace(/[&<>"']/g, match => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[match]));
   const formatPrice = (val) => (DATA.settings.currencySymbol || "Rs ") + Number(val).toLocaleString("en-PK");
   const catLabel = (cat) => String(cat || "").replace(/-/g, " ").replace(/\b\w/g, c => c.toUpperCase());
-  const waLink = (msg) => `https://wa.me/${String(DATA.settings.whatsappNumber || "").replace(/[^\d]/g, "")}?text=${encodeURIComponent(msg)}`;
+    // Find this line:
+  // const waLink = (msg) => `https://wa.me/${String(DATA.settings.whatsappNumber || "").replace(/[^\d]/g, "")}?text=${encodeURIComponent(msg)}`;
+  
+  // Replace it with this:
+  const waLink = (msg) => {
+    const defaultMsg = "Hello Urban Hide! 👋 I am browsing your website and would like to inquire about your premium jackets.";
+    return `https://wa.me/${String(DATA.settings.whatsappNumber || "").replace(/[^\d]/g, "")}?text=${encodeURIComponent(msg || defaultMsg)}`;
+  };
 
   /* ========== UI UPDATES ========== */
   function updateSettings() {
@@ -114,6 +121,11 @@
     const sizes = Array.isArray(p.sizes) && p.sizes.length ? p.sizes : ["One Size"];
     const available = p.inStock !== false;
 
+    // ==========================================
+    // PROFESSIONAL WHATSAPP MESSAGE TEMPLATE
+    // ==========================================
+    const professionalMessage = `Hello Urban Hide! 👋\n\nI would like to place an order for this jacket:\n\n📦 *Product:* ${p.name}\n🏷️ *Category:* ${catLabel(p.category)}\n💰 *Price:* ${formatPrice(p.price)}\n\nCould you please confirm if my size is available? I am looking for size: [Type your size here]`;
+
     modalBody.innerHTML = `
       <button class="close-btn" onclick="document.getElementById('modalOverlay').classList.remove('open')"><i class="fas fa-times"></i></button>
       <div class="modal-content">
@@ -132,7 +144,7 @@
               ${sizes.map(s => `<span class="size-tag">${escapeHtml(s)}</span>`).join("")}
             </div>
           </div>
-          <a href="${available ? waLink(`Hi Urban Hide, I want to order ${p.name} (${formatPrice(p.price)})`) : '#'}" 
+          <a href="${available ? waLink(professionalMessage) : '#'}" 
              class="btn btn-primary" target="_blank" ${!available ? 'style="opacity:0.5;pointer-events:none"' : ''}>
             <i class="fab fa-whatsapp"></i> ${available ? "Order via WhatsApp" : "Out of Stock"}
           </a>
